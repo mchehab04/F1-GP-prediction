@@ -10,3 +10,4 @@ fastf1_cache/
 
 python/__pycache__
 graphify-out/
+.vscode/

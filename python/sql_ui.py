@@ -1,10 +1,17 @@
 # Open the F1 database in DuckDB's browser SQL editor (read-only).
 # Run: python python\sql_ui.py   then open http://localhost:4213
+import os
 from pathlib import Path
 
 import duckdb
 
-DB_PATH = Path(__file__).resolve().parent.parent / "data" / "f1_db.duckdb"
+ROOT = Path(__file__).resolve().parent.parent
+DB_PATH = ROOT / "data" / "f1_db.duckdb"
+
+# Relative paths in UI queries (e.g. COPY ... TO 'data/exports/x.csv') resolve from the project root,
+# wherever this script is launched from. COPY needs the folder to exist already.
+os.chdir(ROOT)
+(ROOT / "data" / "exports").mkdir(exist_ok=True)
 
 # In-memory main DB so the UI can store its own notebooks; the F1 file is attached read-only.
 # (Opening the F1 file itself with read_only=True breaks the UI: it can't create its "_duckdb_ui" catalog.)
