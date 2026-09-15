@@ -1,7 +1,4 @@
-# requirements.txt — Production Dependencies
-pandas==2.4.2
-numpy==2.2.6
-fastf1==3.1.1
-duckdb==0.11.1
-fastparquet==2026.1.0
-scikit-learn==1.7.2
+pandas==2.3.3
+numpy==2.4.6
+fastf1==3.8.3
+duckdb==1.5.5

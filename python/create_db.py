@@ -132,6 +132,32 @@ def get_practice_session_results(con):
             })
             con.execute("INSERT INTO practice_results SELECT * FROM df")
 
+def add_driver_info(con):
+    # One row per driver per team per season: a driver can change team mid-season
+    # (LAW/TSU swapped Red Bull and Racing Bulls in 2025) and numbers can change
+    # between seasons (VER: 1 in 2025, 3 in 2026).
+    # race_results already knows who drove for which team - find the combinations not saved yet
+    missing = con.execute("""
+        SELECT rr.year, rr.driver, rr.team_name, min(rr.round) AS first_round
+        FROM race_results rr
+        ANTI JOIN drivers d
+            ON d.year = rr.year AND d.driver = rr.driver AND d.team_name = rr.team_name
+        GROUP BY rr.year, rr.driver, rr.team_name
+        ORDER BY rr.year, first_round
+    """).fetchall()
+    results = {} # (year, round) -> results, so each race loads once
+    for year, driver, team_name, first_round in missing:
+        if (year, first_round) not in results:
+            print(f"Loading driver info from {year} round {first_round}")
+            session = fastf1.get_session(year, first_round, "R")
+            session.load(laps=False, telemetry=False, weather=False, messages=False)  # results only
+            results[(year, first_round)] = session.results.set_index("Abbreviation")
+        row = results[(year, first_round)].loc[driver]    # this driver's line in that race's results
+        con.execute("""
+            INSERT INTO drivers (year, driver, team_name, driver_number)
+            VALUES (?, ?, ?, ?)
+        """, [year, driver, team_name, int(row["DriverNumber"])])
+
 def main():
     with duckdb.connect(str(DB_PATH)) as con:
         # create the races table
@@ -194,6 +220,18 @@ def main():
             )
         """)
         get_practice_session_results(con)
+
+        # create the drivers table - one row per driver per team per season
+        con.execute("""
+            CREATE TABLE IF NOT EXISTS drivers (
+                year            INTEGER,
+                driver          VARCHAR,  -- abbreviation, e.g. VER (same name as in the results tables)
+                team_name       VARCHAR,  -- a driver who changed team mid-season has one row per team
+                driver_number   INTEGER,  -- can change between seasons (VER: 1 in 2025, 3 in 2026)
+                PRIMARY KEY (year, driver, team_name)
+            )
+        """)
+        add_driver_info(con)
 
 if __name__ == '__main__':
     main()
