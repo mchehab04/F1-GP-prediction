@@ -1,0 +1,12 @@
+# Ignore the venv directory
+venv/
+
+# Ignore .env file
+.env
+
+# Ignore data directory
+data/
+fastf1_cache/
+
+python/__pycache__
+graphify-out/
