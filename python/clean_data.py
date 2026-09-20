@@ -1,10 +1,11 @@
 """
-Clean and normalize race_results in DuckDB:
+Clean and normalize race_results and races in DuckDB:
 - If status is 'Finished' or contains 'lap' (case-insensitive), set classified_position = position
 - If status is 'Withdrew' or 'Did not start', set classified_position = 'W'
 - If status is 'Disqualified', set classified_position = 'D'
 - Any other status is set to 'R' (all other statuses indicate a DNF)
 - Impute null position and grid_position for withdrawn drivers (MSC 2022 R2, STR 2023 R15) to 20
+- Normalize circuit locations in races (Monaco -> Monte Carlo, Miami Gardens -> Miami, Yas Island -> Yas Marina, Kuala Lumpur -> Sakhir)
 """
 
 import sys
@@ -51,6 +52,22 @@ def clean_null_positions(con):
     print("Null positions updated successfully!")
 
 
+def clean_race_locations(con):
+    print("\nNormalizing circuit locations in races...")
+    con.execute("""
+        UPDATE races
+        SET location = CASE
+            WHEN lower(location) = 'monaco' THEN 'Monte Carlo'
+            WHEN lower(location) = 'miami gardens' THEN 'Miami'
+            WHEN lower(location) = 'yas island' THEN 'Yas Marina'
+            WHEN lower(location) = 'kuala lumpur' THEN 'Sakhir'
+            ELSE location
+        END
+        WHERE lower(location) IN ('monaco', 'miami gardens', 'yas island', 'kuala lumpur')
+    """)
+    print("Circuit locations normalized successfully!")
+
+
 def show_cleaning_summary(con):
     print("\n--- Summary of cleaned classified_position by status ---")
     summary = con.execute("""
@@ -76,6 +93,17 @@ def show_cleaning_summary(con):
     for r in null_rows:
         print(f"  {r[0]} R{r[1]:<2} {r[2]}: position={r[3]}, grid_position={r[4]}, status={r[5]}, classified={r[6]}")
 
+    print("\n--- Normalized Circuit Locations in races ---")
+    locations = con.execute("""
+        SELECT location, count(*) AS total_races
+        FROM races
+        WHERE location IN ('Monte Carlo', 'Miami', 'Yas Marina', 'Sakhir')
+        GROUP BY location
+        ORDER BY location
+    """).fetchall()
+    for loc, cnt in locations:
+        print(f"  {loc:<20} : {cnt} races")
+
 
 def main():
     try:
@@ -90,6 +118,7 @@ def main():
         show_distinct_statuses(con)
         clean_race_results(con)
         clean_null_positions(con)
+        clean_race_locations(con)
         show_cleaning_summary(con)
     finally:
         con.close()

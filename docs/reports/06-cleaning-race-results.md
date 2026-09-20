@@ -1,8 +1,8 @@
 # 06 — Cleaning race results (`classified_position`)
 
-**Date:** 2026-09-16 → 2026-09-19 · **Phase:** Phase 2 (Data Cleaning)
+**Date:** 2026-09-16 → 2026-09-20 · **Phase:** Phase 2 (Data Cleaning)
 
-**In short:** [python/clean_data.py](../../python/clean_data.py) cleans and normalizes `race_results` across all 2,146 rows. It standardizes `classified_position` into four clean categories (`1`–`20`, `'R'`, `'D'`, `'W'`) and resolves the only two `NULL` entries in the dataset (Mick Schumacher in 2022 R2 and Lance Stroll in 2023 R15) by imputing `position = 20` and `grid_position = 20`.
+**In short:** [python/clean_data.py](../../python/clean_data.py) cleans and normalizes `race_results` and `races` in DuckDB. It standardizes `classified_position` into four clean categories (`1`–`20`, `'R'`, `'D'`, `'W'`), resolves the two `NULL` entries (MSC 2022 R2 and STR 2023 R15) by imputing `position = 20` and `grid_position = 20`, and normalizes inconsistent circuit location names across seasons.
 
 ## Why this was needed
 
@@ -13,10 +13,11 @@ In [04](04-first-database-fastf1-duckdb.md), I noted several quirks in the raw F
 3. **Disqualifications were coded two ways:** 10 drivers had `status = 'Disqualified'`, but only 7 showed `classified_position = 'D'`. The other 3 showed a finishing position number.
 4. **Non-starters vs. withdrawals:** 16 rows had `status = 'Did not start'` and 3 had `status = 'Withdrew'`.
 5. **Two rows had `NULL` for both `position` and `grid_position`:** Mick Schumacher (Saudi Arabia 2022) and Lance Stroll (Singapore 2023). Both crashed heavily in qualifying and were withdrawn by their teams before Sunday's race procedures began.
+6. **Inconsistent circuit locations in `races`:** Over time, FastF1 updated venue strings (e.g. `Monaco` vs. `Monte Carlo`, `Miami Gardens` vs. `Miami`, `Yas Island` vs. `Yas Marina`), and the provisional 2026 calendar mistakenly labeled Bahrain's location as `Kuala Lumpur`.
 
 ## The cleaning rules
 
-The script performs two idempotent updates:
+The script performs three idempotent updates:
 
 ### 1. Standardizing `classified_position`
 
@@ -43,6 +44,23 @@ WHERE (year = 2022 AND round = 2 AND driver = 'MSC')
 - In both events, only 19 cars took the start, occupying grid slots 1 through 19. That left **slot 20 completely vacant**.
 - In Schumacher's race, setting his grid position to his qualifying position (14) would have caused a collision with Daniel Ricciardo, who received a 3-place penalty that was shifted up to grid slot 14 when the FIA collapsed the grid after Schumacher's withdrawal.
 - Setting both to 20 aligns with every other DNS entry in the database (which have `position = 20`), avoids grid slot collisions, and eliminates all nulls from `race_results`.
+
+### 3. Normalizing circuit locations in `races`
+
+```sql
+UPDATE races
+SET location = CASE
+    WHEN lower(location) = 'monaco' THEN 'Monte Carlo'
+    WHEN lower(location) = 'miami gardens' THEN 'Miami'
+    WHEN lower(location) = 'yas island' THEN 'Yas Marina'
+    WHEN lower(location) = 'kuala lumpur' THEN 'Sakhir'
+    ELSE location
+END
+WHERE lower(location) IN ('monaco', 'miami gardens', 'yas island', 'kuala lumpur');
+```
+
+- Unifies multi-season track names so `GROUP BY location` aggregates consistently across all years.
+- Crucially preserves unaffected tracks via `ELSE location`.
 
 ### Breakdown of the cleaned data (2,146 rows)
 

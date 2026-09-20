@@ -75,3 +75,12 @@ Append-only. If a later decision reverses one of these, it gets a new entry that
 - **Why:** In both races, only 19 cars started, occupying grid slots 1–19, leaving slot 20 completely vacant. Setting Schumacher's grid to his qualifying position (14) would create a duplicate grid slot with Ricciardo (who moved to 14 after a penalty and grid collapse). Setting both to 20 eliminates all nulls, avoids grid collisions, and matches how all other DNS entries are encoded in FastF1.
 - **Alternatives:** Keep as `NULL` (would require null-handling in downstream models) or set Schumacher's grid to 14 (causes duplicate grid slots).
 - **Follow-up:** Managed via `python/clean_data.py`. Report: [06](reports/06-cleaning-race-results.md).
+
+## 2026-09-20 — Normalize circuit location names in `races`
+
+- **Context:** `races.location` had inconsistent naming across seasons (`Monaco` vs `Monte Carlo`, `Miami Gardens` vs `Miami`, `Yas Island` vs `Yas Marina`) and a placeholder bug for 2026 Bahrain (`Kuala Lumpur`).
+- **Decision:** Normalize in-place to canonical names: `Monte Carlo`, `Miami`, `Yas Marina`, and `Sakhir`.
+- **Why:** Unifies multi-season track groupings in SQL queries (`GROUP BY location`) and eliminates false track splits.
+- **Alternatives:** Build a separate `circuits` dimension table immediately (deferred to Phase 2 modeling feature engineering).
+- **Follow-up:** Managed via `python/clean_data.py`. Report: [06](reports/06-cleaning-race-results.md).
+

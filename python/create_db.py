@@ -158,6 +158,44 @@ def add_driver_info(con):
             VALUES (?, ?, ?, ?)
         """, [year, driver, team_name, int(row["DriverNumber"])])
 
+def add_sprint_results(con):
+    # Only loop over events that actually hosted a sprint race
+    races = con.execute("SELECT year, round FROM races WHERE sprint_included = true ORDER BY year, round").fetchall()
+    done = set(con.execute("SELECT DISTINCT year, round FROM sprint_results").fetchall())
+    for year, rnd in races:
+        if (year, rnd) in done:
+            continue
+        try:
+            session = fastf1.get_session(year, rnd, "Sprint")
+        except ValueError:
+            continue  # Safety check in case of schedule changes
+        if session.date > pd.Timestamp.now():             # skip races that haven't happened yet
+            continue
+        print(f"Loading sprint results for {year} round {rnd}")
+        session.load(laps=False, telemetry=False, weather=False, messages=False)  # results only
+        res = session.results                             # a DataFrame, one row per driver
+        if res["Position"].isna().all():                  # FastF1 only warns when the fetch fails
+            print(f"  WARNING: no results for {year} round {rnd}, skipping - rerun later")
+            continue
+        df = pd.DataFrame({
+            "year": year,
+            "round": rnd,
+            "driver": res["Abbreviation"],
+            "position": res["Position"],
+            "grid_position": res["GridPosition"],        # where they actually started
+            "team_name": res["TeamName"],
+            "status": res["Status"],                     # "Finished", "+1 Lap", "Accident", ...
+            "classified_position": res["ClassifiedPosition"],   # "R" = retired, "D" = disqualified
+            "points": res["Points"],
+            "laps": res["Laps"],                         # laps completed
+        })
+        # Name the columns so the insert doesn't depend on column order
+        con.execute("""INSERT INTO sprint_results
+            (year, round, driver, position, grid_position, team_name, status,
+             classified_position, points, laps)
+            SELECT year, round, driver, position, grid_position, team_name, status,
+                   classified_position, points, laps FROM df""")
+
 def main():
     with duckdb.connect(str(DB_PATH)) as con:
         # create the races table
@@ -232,6 +270,24 @@ def main():
             )
         """)
         add_driver_info(con)
+
+        # create sprint_results table
+        con.execute("""
+            CREATE TABLE IF NOT EXISTS sprint_results (
+                year            INTEGER,
+                round           INTEGER,
+                driver          VARCHAR,
+                position        INTEGER,
+                grid_position   INTEGER,
+                team_name       VARCHAR,
+                status          VARCHAR,
+                classified_position VARCHAR,
+                points          INTEGER,
+                laps            INTEGER,
+                PRIMARY KEY (year, round, driver)
+            )
+        """)
+        add_sprint_results(con)
 
 if __name__ == '__main__':
     main()
