@@ -17,3 +17,7 @@
 
 - [decisions.md](decisions.md): the decision log, append-only
 - [ROADMAP.md](../ROADMAP.md): phases 0–11 with "Done when" criteria
+- [web_visualization_plan.md](web_visualization_plan.md): directional plan for the web app, interactive visuals, and tech stack
+- [streamlit_architecture_and_guide.md](streamlit_architecture_and_guide.md): Streamlit mental model, architecture, and project implementation guide
+- [dashboard_sql_map.md](dashboard_sql_map.md): which `sql/eda/` queries the dashboard uses, how they changed, and the new dashboard queries
+

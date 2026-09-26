@@ -8,6 +8,11 @@ venv/
 data/
 fastf1_cache/
 
-python/__pycache__
+__pycache__/
+*.py[cod]
+*$py.class
 graphify-out/
 .vscode/
+
+GEMINI.md
+.gemini/

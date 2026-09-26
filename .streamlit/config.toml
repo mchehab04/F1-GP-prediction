@@ -1,0 +1,16 @@
+[theme]
+base = "dark"
+primaryColor = "#E10600"
+backgroundColor = "#0B0C10"
+secondaryBackgroundColor = "#1B1C23"
+textColor = "#F2F3F5"
+borderColor = "#2A2B33"
+baseRadius = "6px"
+font = "'Titillium Web', sans-serif"
+codeFont = "'JetBrains Mono', monospace"
+
+[client]
+toolbarMode = "minimal"
+
+[server]
+fileWatcherType = "poll"
